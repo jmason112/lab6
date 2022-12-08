@@ -1,0 +1,67 @@
+- name: "task 1"
+  hosts: myservers
+  tasks:
+   - include_vars: cmdfile.yml
+   - name: "create custom fact directory"
+     file:
+       path: "/etc/ansible/facts.d"
+       state: "directory"
+
+   - name: "insert custom fact file"
+     copy:
+       src: /root/jordanregistry/custom.fact
+       dest: /etc/ansible/facts.d/custom.fact
+       mode: 0644
+
+   - name: "install apache"
+     package: 
+       name: "{{ ansible_local.custom.localfacts.pkgname }}"
+       state: present
+   
+   - name: "start apache"
+     service: 
+       name: "{{ ansible_local.custom.localfacts.srvc }}"
+       state: started
+
+- name: "task2"
+  hosts: myservers
+  tasks:
+   - block:
+       - include_vars: cmdfile.yml
+       - name: "check if file already exists"
+         command: ls /home/{{ user }}/myfile
+         register: file_exists
+         ignore_errors: yes
+
+       - name: "create file for user"
+         file: 
+           path: /home/{{ user }}/myfile
+           state: touch
+         when: file_exists is failed
+
+
+       - name: "show message if file exists"
+         debug:
+           msg: "the user file already exists"
+         when: file_exists is succeeded
+
+
+   - block:
+       - include_vars: cmdfile.yml
+       - name: "check if service is started"
+         command: yum info {{ service }}
+         register: service_enabled
+         ignore_errors: yes
+
+
+       - name: "install the service"
+         package:
+           name: "{{ service }}"
+           state: present
+         when: service_enabled is failed
+
+
+       - name: "show message if service started already"
+         debug:
+           msg: "the service is already installed"
+         when: service_enabled is succeeded
